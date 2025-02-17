@@ -62,3 +62,14 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 	}
 	return
 }
+
+func UploadRawContent(content string, targetFileName string, userIdentifier string) (downloadUrl string, err error) {
+	userPath := CalcPath(userIdentifier)
+	timePath := CalcPath(time.Now().String())[:4]
+	// 上传文件
+	_, err = cosClient.Object.Put(ctx, userPath+"/"+timePath+"/"+targetFileName, strings.NewReader(content), nil)
+	if err == nil {
+		downloadUrl = path.Join(cosFrontendUrl, userPath, timePath, targetFileName)
+	}
+	return
+}
