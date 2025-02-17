@@ -12,8 +12,8 @@ import (
 var baseUrl string
 var authToken string
 
-func Init(token string, listenAddr string, listenPort int) {
-	baseUrl = fmt.Sprintf("http://%s:%d/convert", listenAddr, listenPort)
+func Init(host string, token string) {
+	baseUrl = fmt.Sprintf("http://%s/convert", host)
 	authToken = token
 }
 
