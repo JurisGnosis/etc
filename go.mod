@@ -5,6 +5,7 @@ go 1.22.11
 require (
 	github.com/google/go-querystring v1.0.0
 	github.com/redis/go-redis/v9 v9.7.0
+	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.61
 )
 
