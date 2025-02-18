@@ -30,6 +30,14 @@ var defaultOptions = Options{
 	RawOcr:            0,
 }
 
+func GetDefaultOptions() Options {
+	return defaultOptions
+}
+
+func SetOptions(options Options) {
+	defaultOptions = options
+}
+
 type TextinOcr struct {
 	AppID     string
 	AppSecret string
@@ -89,9 +97,10 @@ func writeFile(content, filePath string) error {
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
 
-func Init(appId string, appSecret string) {
+func Init(appId string, appSecret string, options Options) {
 	textin.AppID = appId
 	textin.AppSecret = appSecret
+	defaultOptions = options
 }
 
 func Pdf2MarkdownFromLocal(filePath string) (markdownText string, err error) {
