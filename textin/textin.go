@@ -17,13 +17,17 @@ var textin = &TextinOcr{
 	Host:      "https://api.textin.com",
 }
 
-var options = Options{
-	PageStart:   0,
-	PageCount:   1000, // 解析1000页
-	TableFlavor: "md",
-	ParseMode:   "scan", // 设置为scan模式
-	Dpi:         144,    // 分辨率为144 dpi
-	PageDetails: 0,      // 不包含页面细节信息
+var defaultOptions = Options{
+	PageStart:         0,
+	PageCount:         100,
+	ApplyDocumentTree: 1,
+	MarkdownDetails:   1,
+	GetImage:          "none",
+	TableFlavor:       "html",
+	ParseMode:         "scan", // scan 为纯文本，auto 为综合识别
+	Dpi:               144,
+	PageDetails:       0,
+	RawOcr:            0,
 }
 
 type TextinOcr struct {
@@ -43,6 +47,7 @@ type Options struct {
 	GetImage          string `url:"get_image,omitempty"`
 	ParseMode         string `url:"parse_mode,omitempty"`
 	PageDetails       int    `url:"page_details,omitempty"`
+	RawOcr            int    `url:"raw_ocr,omitempty"`
 }
 
 type Response struct {
@@ -100,7 +105,7 @@ func Pdf2MarkdownFromLocal(filePath string) (markdownText string, err error) {
 		return
 	}
 	start := time.Now()
-	resp, err := textin.recognizePDF2MD(image, options, false)
+	resp, err := textin.recognizePDF2MD(image, defaultOptions, false)
 	if err != nil {
 		fmt.Println("Error recognizing PDF:", err)
 		return
@@ -124,7 +129,7 @@ func Pdf2MarkdownFromUrl(url string) (markdownText string, err error) {
 	}
 	// 示例 2：传输 URL
 	start := time.Now()
-	resp, err := textin.recognizePDF2MD([]byte(url), options, true)
+	resp, err := textin.recognizePDF2MD([]byte(url), defaultOptions, true)
 	if err != nil {
 		fmt.Println("Error recognizing PDF:", err)
 		return
