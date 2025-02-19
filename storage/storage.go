@@ -55,12 +55,12 @@ func Init(SecretID string, SecretKey string, bucket string, region string, front
 func CalcPath(userIdentifier string) string {
 	hasher := sha1.New()
 	hasher.Write([]byte(userIdentifier + usernameSalt))
-	return hex.EncodeToString(hasher.Sum(nil))[:15]
+	return hex.EncodeToString(hasher.Sum(nil))[:16]
 }
 
 func Upload(localFilePath string, targetFileName string, userIdentifier string) (downloadUrl string, err error) {
 	userPath := CalcPath(userIdentifier)
-	timePath := CalcPath(time.Now().String())[:4]
+	timePath := CalcPath(time.Now().String())[:8]
 	// 上传文件
 	_, err = cosClient.Object.PutFromFile(ctx, userPath+"/"+timePath+"/"+targetFileName, localFilePath, nil)
 	if err == nil {
@@ -71,7 +71,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 
 func UploadRawContent(content string, targetFileName string, userIdentifier string) (downloadUrl string, err error) {
 	userPath := CalcPath(userIdentifier)
-	timePath := CalcPath(time.Now().String())[:4]
+	timePath := CalcPath(time.Now().String())[:8]
 	// 上传文件
 	_, err = cosClient.Object.Put(ctx, userPath+"/"+timePath+"/"+targetFileName, strings.NewReader(content), nil)
 	if err == nil {
