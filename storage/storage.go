@@ -22,14 +22,20 @@ var timeoutSeconds = 100
 var ctx = context.Background()
 
 var filenameAccessCheck string = "timestampLastRegister"
-var cosFrontendUrl string
+var cosFrontendHost string
+var cosFrontendScheme string
 
 // 与 COS Bucket 绑定，建议不要修改
 var usernameSalt string
 
-func Init(SecretID string, SecretKey string, bucket string, region string, frontendUrl string, sha1Key string) (err error) {
+func Init(SecretID string, SecretKey string, bucket string, region string, frontendHost string, frontendHttpsEnabled bool, sha1Key string) (err error) {
 	cosEndpoint = fmt.Sprintf("https://%s.cos.%s.myqcloud.com", bucket, region)
-	cosFrontendUrl = frontendUrl
+	cosFrontendHost = frontendHost
+	if frontendHttpsEnabled {
+		cosFrontendScheme = "https"
+	} else {
+		cosFrontendScheme = "http"
+	}
 	usernameSalt = sha1Key
 	u, _ := url.Parse(cosEndpoint)
 	cosBaseUrl = &cos.BaseURL{BucketURL: u}
@@ -58,7 +64,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 	// 上传文件
 	_, err = cosClient.Object.PutFromFile(ctx, userPath+"/"+timePath+"/"+targetFileName, localFilePath, nil)
 	if err == nil {
-		downloadUrl = path.Join(cosFrontendUrl, userPath, timePath, targetFileName)
+		downloadUrl = cosFrontendScheme + "://" + cosFrontendHost + "/" + path.Join(userPath, timePath, targetFileName)
 	}
 	return
 }
@@ -69,7 +75,7 @@ func UploadRawContent(content string, targetFileName string, userIdentifier stri
 	// 上传文件
 	_, err = cosClient.Object.Put(ctx, userPath+"/"+timePath+"/"+targetFileName, strings.NewReader(content), nil)
 	if err == nil {
-		downloadUrl = path.Join(cosFrontendUrl, userPath, timePath, targetFileName)
+		downloadUrl = cosFrontendScheme + "://" + cosFrontendHost + "/" + path.Join(userPath, timePath, targetFileName)
 	}
 	return
 }
