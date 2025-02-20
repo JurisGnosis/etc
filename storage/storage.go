@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
@@ -65,6 +66,8 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 	_, err = cosClient.Object.PutFromFile(ctx, userPath+"/"+timePath+"/"+targetFileName, localFilePath, nil)
 	if err == nil {
 		downloadUrl = cosFrontendScheme + "://" + cosFrontendHost + "/" + path.Join(userPath, timePath, targetFileName)
+	} else {
+		slog.Error("cos upload error", "info", err)
 	}
 	return
 }
@@ -76,6 +79,8 @@ func UploadRawContent(content string, targetFileName string, userIdentifier stri
 	_, err = cosClient.Object.Put(ctx, userPath+"/"+timePath+"/"+targetFileName, strings.NewReader(content), nil)
 	if err == nil {
 		downloadUrl = cosFrontendScheme + "://" + cosFrontendHost + "/" + path.Join(userPath, timePath, targetFileName)
+	} else {
+		slog.Error("cos upload error", "info", err)
 	}
 	return
 }
