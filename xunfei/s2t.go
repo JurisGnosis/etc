@@ -1,18 +1,21 @@
-package xunfei
+package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hash"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
+	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -22,19 +25,11 @@ const (
 	STATUS_LAST_FRAME     = 2
 )
 
-var wsParam *WsParam
-
-func Init(appId string, apiSecret string, apiKey string) {
-	wsParam = &WsParam{
-		APPID:     appId,
-		APISecret: apiSecret,
-		APIKey:    apiKey,
-		AudioFile: "path-to-your-audio-file",
-		IatParams: map[string]interface{}{
-			"domain": "slm", "language": "zh_cn", "accent": "mulacc", "result": map[string]string{"encoding": "utf8", "compress": "raw", "format": "json"},
-		},
-	}
-}
+// Global variables to hold the WebSocket parameters and a mutex for thread safety
+var (
+	wsParam *WsParam
+	mu      sync.Mutex
+)
 
 type WsParam struct {
 	APPID     string
@@ -71,65 +66,77 @@ func (wsParam *WsParam) createUrl() string {
 	return completeUrl
 }
 
-func onMessage(ws *websocket.Conn) {
-	for {
-		_, message, err := ws.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			return
-		}
-		var response map[string]interface{}
-		if err := json.Unmarshal(message, &response); err != nil {
-			log.Println("json parse error:", err)
-			continue
-		}
-
-		header := response["header"].(map[string]interface{})
-		code := header["code"].(float64)
-		status := header["status"].(float64)
-
-		if code != 0 {
-			log.Printf("请求错误：%d\n", int(code))
-			ws.Close()
-			break
-		}
-
-		if payload, ok := response["payload"].(map[string]interface{}); ok {
-			resultText := payload["result"].(map[string]interface{})["text"].(string)
-			decodedText, _ := base64.StdEncoding.DecodeString(resultText)
-			fmt.Println("Result:", string(decodedText))
-		}
-
-		if status == 2 {
-			ws.Close()
-			break
-		}
+func Init(appId string, apiSecret string, apiKey string) {
+	wsParam = &WsParam{
+		APPID:     appId,
+		APISecret: apiSecret,
+		APIKey:    apiKey,
+		AudioFile: "path-to-your-audio-file",
+		IatParams: map[string]interface{}{
+			"domain": "slm", "language": "zh_cn", "accent": "mulacc", "result": map[string]string{"encoding": "utf8", "compress": "raw", "format": "json"},
+		},
 	}
 }
 
-func onOpen(ws *websocket.Conn, wsParam *WsParam) {
-	file, err := os.Open(wsParam.AudioFile)
-	if err != nil {
-		log.Fatal(err)
+func handleUpload(c *gin.Context) {
+	// Check if the service is initialized
+	if wsParam == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Service not initialized"})
+		return
 	}
-	defer file.Close()
 
+	file, err := c.FormFile("upload_wav")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File upload error: " + err.Error()})
+		return
+	}
+
+	uploadedFile, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error opening file: " + err.Error()})
+		return
+	}
+	defer uploadedFile.Close()
+
+	// Read the uploaded file into a byte buffer
+	audioBuffer := new(bytes.Buffer)
+	if _, err := io.Copy(audioBuffer, uploadedFile); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading file: " + err.Error()})
+		return
+	}
+
+	processAudio(audioBuffer.Bytes(), c) // Process the audio
+}
+
+func processAudio(audioData []byte, c *gin.Context) {
+	mu.Lock()
+	ws, _, err := websocket.DefaultDialer.Dial(wsParam.createUrl(), nil)
+	mu.Unlock()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "WebSocket connection error: " + err.Error()})
+		return
+	}
+	defer ws.Close()
+
+	onOpen(ws, audioData)
+	onMessage(ws, c)
+}
+
+func onOpen(ws *websocket.Conn, audioData []byte) {
 	const frameSize = 1280
-	const interval = 40 * time.Millisecond
+	const interval = 5 * time.Millisecond
+	fmt.Println("socket open")
+	fmt.Println(len(audioData))
 	status := STATUS_FIRST_FRAME
 
-	for {
-		audioBuffer := make([]byte, frameSize)
-		n, err := file.Read(audioBuffer)
-		if err != nil || n == 0 {
-			if status == STATUS_CONTINUE_FRAME {
-				status = STATUS_LAST_FRAME
-			} else {
-				break
-			}
+	for offset := 0; offset < len(audioData); offset += frameSize {
+		end := offset + frameSize
+		if end > len(audioData) {
+			end = len(audioData)
 		}
+		audioChunk := audioData[offset:end]
 
-		audio := base64.StdEncoding.EncodeToString(audioBuffer[:n])
+		audio := base64.StdEncoding.EncodeToString(audioChunk)
 		var message []byte
 
 		switch status {
@@ -175,21 +182,76 @@ func onOpen(ws *websocket.Conn, wsParam *WsParam) {
 		ws.WriteMessage(websocket.TextMessage, message)
 		time.Sleep(interval)
 	}
-	ws.Close()
+}
+
+type wsApiResponse struct {
+	Header  wsApiHeader  `json:"header"`
+	Payload wsApiPayload `json:"payload"`
+}
+
+type wsApiHeader struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	SID     string `json:"sid"`
+	Status  int    `json:"status"`
+}
+
+type wsApiPayload struct {
+	Result wsApiResult `json:"result"`
+}
+
+type wsApiResult struct {
+	Compress string `json:"compress"`
+	Encoding string `json:"encoding"`
+	Format   string `json:"format"`
+	Seq      int    `json:"seq"`
+	Status   int    `json:"status"`
+	Text     string `json:"text"`
+}
+
+func onMessage(ws *websocket.Conn, c *gin.Context) {
+	for {
+		_, message, err := ws.ReadMessage()
+		fmt.Println(string(message))
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		response := wsApiResponse{}
+		if err := json.Unmarshal(message, &response); err != nil {
+			log.Println("json parse error:", err)
+			continue
+		}
+		fmt.Println(response)
+
+		header := response.Header
+		code := header.Code
+		status := header.Status
+
+		if code != 0 {
+			log.Printf("请求错误：%d\n", int(code))
+			ws.Close()
+			break
+		}
+
+		payload := response.Payload
+		resultText := payload.Result.Text
+		decodedText, _ := base64.StdEncoding.DecodeString(resultText)
+		c.String(http.StatusOK, "Result: %s\n", string(decodedText))
+
+		if status == 2 {
+			ws.Close()
+			break
+		}
+	}
 }
 
 func main() {
-
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+wsParam.APIKey)
-	headers.Set("Content-Type", "application/json")
-
-	ws, _, err := websocket.DefaultDialer.Dial(wsParam.createUrl(), headers)
-	if err != nil {
-		log.Fatal("dial:", err)
+	// Initialize the WebSocket parameters here
+	Init("b9ee65d0", "NGFjNzQxNDc2MWMzM2IzYjYxMGViYTdj", "b1f3083158ace4e65d49e622f3c4b8dc")
+	r := gin.Default()
+	r.POST("/s2t", handleUpload)
+	if err := r.Run(":9004"); err != nil {
+		log.Fatalf("Failed to run server: %s\n", err)
 	}
-	defer ws.Close()
-
-	onOpen(ws, wsParam)
-	onMessage(ws)
 }
