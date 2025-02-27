@@ -1,4 +1,4 @@
-package main
+package xunfei
 
 import (
 	"bytes"
@@ -12,6 +12,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +26,7 @@ const (
 	STATUS_FIRST_FRAME    = 0
 	STATUS_CONTINUE_FRAME = 1
 	STATUS_LAST_FRAME     = 2
+	cache_dir             = "/tmp/"
 )
 
 // Global variables to hold the WebSocket parameters and a mutex for thread safety
@@ -78,7 +82,7 @@ func Init(appId string, apiSecret string, apiKey string) {
 	}
 }
 
-func handleUpload(c *gin.Context) {
+func HandlerUpload(c *gin.Context) {
 	// Check if the service is initialized
 	if wsParam == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Service not initialized"})
@@ -91,12 +95,36 @@ func handleUpload(c *gin.Context) {
 		return
 	}
 
-	uploadedFile, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error opening file: " + err.Error()})
-		return
+	var uploadedFile io.Reader
+
+	if strings.HasSuffix(file.Filename, ".wav") {
+		// generate random filename, and save file to `cache_path`
+		cacheFile1 := path.Join(cache_dir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename))
+		cacheFile2 := path.Join(cache_dir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename+".mp3"))
+		err = c.SaveUploadedFile(file, cacheFile1)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file: " + err.Error()})
+			return
+		}
+		err = convertFileWavToMp3(cacheFile1, cacheFile2)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert file: " + err.Error()})
+			return
+		}
+		uploadedFile, err = os.Open(cacheFile2)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error opening file: " + err.Error()})
+			return
+		}
+	} else {
+		uploadedFile00, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error opening file: " + err.Error()})
+			return
+		}
+		defer uploadedFile00.Close()
+		uploadedFile = uploadedFile00
 	}
-	defer uploadedFile.Close()
 
 	// Read the uploaded file into a byte buffer
 	audioBuffer := new(bytes.Buffer)
@@ -243,15 +271,5 @@ func onMessage(ws *websocket.Conn, c *gin.Context) {
 			ws.Close()
 			break
 		}
-	}
-}
-
-func main() {
-	// Initialize the WebSocket parameters here
-	Init("b9ee65d0", "NGFjNzQxNDc2MWMzM2IzYjYxMGViYTdj", "b1f3083158ace4e65d49e622f3c4b8dc")
-	r := gin.Default()
-	r.POST("/s2t", handleUpload)
-	if err := r.Run(":9004"); err != nil {
-		log.Fatalf("Failed to run server: %s\n", err)
 	}
 }
