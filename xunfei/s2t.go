@@ -31,8 +31,10 @@ const (
 
 // Global variables to hold the WebSocket parameters and a mutex for thread safety
 var (
-	wsParam *WsParam
-	mu      sync.Mutex
+	wsParam                *WsParam
+	mu                     sync.Mutex
+	frameSize              int
+	frameIntervalMillisecs int
 )
 
 type WsParam struct {
@@ -70,7 +72,9 @@ func (wsParam *WsParam) createUrl() string {
 	return completeUrl
 }
 
-func Init(appId string, apiSecret string, apiKey string) {
+func Init(appId string, apiSecret string, apiKey string, frameSz int, frameIntervalMili int) {
+	frameSize = frameSz
+	frameIntervalMillisecs = frameIntervalMili
 	wsParam = &WsParam{
 		APPID:     appId,
 		APISecret: apiSecret,
@@ -151,8 +155,6 @@ func processAudio(audioData []byte, c *gin.Context) {
 }
 
 func onOpen(ws *websocket.Conn, audioData []byte) {
-	const frameSize = 1280
-	const interval = 5 * time.Millisecond
 	fmt.Println("socket open")
 	fmt.Println(len(audioData))
 	status := STATUS_FIRST_FRAME
@@ -208,7 +210,7 @@ func onOpen(ws *websocket.Conn, audioData []byte) {
 		}
 
 		ws.WriteMessage(websocket.TextMessage, message)
-		time.Sleep(interval)
+		time.Sleep(time.Duration(frameIntervalMillisecs) * time.Millisecond)
 	}
 }
 
