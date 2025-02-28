@@ -305,12 +305,16 @@ func onMessage(ws *websocket.Conn) (retText string) {
 
 		payload := response.Payload
 		resultText := payload.Result.Text
-		decodedText, _ := base64.StdEncoding.DecodeString(resultText)
-		partialText, err := ExtractTextFromJSON(string(decodedText))
-		if err != nil {
-			log.Printf("解析失败: %s, %s", err.Error(), string(decodedText))
+		if len(resultText) > 0 {
+			decodedText, _ := base64.StdEncoding.DecodeString(resultText)
+			partialText, err := ExtractTextFromJSON(string(decodedText))
+			if err != nil {
+				log.Printf("解析失败: %s, %s", err.Error(), string(decodedText))
+			}
+			retText = retText + partialText
+		} else {
+			log.Print("未收到有效信息")
 		}
-		retText = retText + partialText
 		// c.String(http.StatusOK, "Result: %s\n", string(decodedText))
 		// if status == 2 {
 		if response.Payload.Result.Status == 1 {
