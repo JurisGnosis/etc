@@ -317,7 +317,7 @@ func onMessage(ws *websocket.Conn) (retText string) {
 		}
 		// c.String(http.StatusOK, "Result: %s\n", string(decodedText))
 		// if status == 2 {
-		if response.Payload.Result.Status == 1 {
+		if response.Payload.Result.Status >= 1 {
 			ws.Close()
 			break
 		}
