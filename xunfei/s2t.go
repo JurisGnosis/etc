@@ -193,21 +193,26 @@ func processAudio(audioData []byte, c *gin.Context) {
 func onOpen(ws *websocket.Conn, audioData []byte) {
 	fmt.Println("socket open")
 	fmt.Println(len(audioData))
-	status := STATUS_FIRST_FRAME
-
 	for offset := 0; offset < len(audioData); offset += frameSize {
 		end := offset + frameSize
 		if end > len(audioData) {
 			end = len(audioData)
 		}
 		audioChunk := audioData[offset:end]
-
 		audio := base64.StdEncoding.EncodeToString(audioChunk)
 		var message []byte
-
+		var status int
+		// Determine the status
+		switch {
+		case offset == 0:
+			status = STATUS_FIRST_FRAME
+		case offset+frameSize >= len(audioData):
+			status = STATUS_LAST_FRAME
+		default:
+			status = STATUS_CONTINUE_FRAME
+		}
 		switch status {
 		case STATUS_FIRST_FRAME:
-			status = STATUS_CONTINUE_FRAME
 			message, _ = json.Marshal(map[string]interface{}{
 				"header":    map[string]interface{}{"status": 0, "app_id": wsParam.APPID},
 				"parameter": map[string]interface{}{"iat": wsParam.IatParams},
@@ -241,10 +246,7 @@ func onOpen(ws *websocket.Conn, audioData []byte) {
 					},
 				},
 			})
-			ws.WriteMessage(websocket.TextMessage, message)
-			break
 		}
-
 		ws.WriteMessage(websocket.TextMessage, message)
 		time.Sleep(time.Duration(frameIntervalMillisecs) * time.Millisecond)
 	}
