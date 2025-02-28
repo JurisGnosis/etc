@@ -104,13 +104,13 @@ func HandlerUpload(c *gin.Context) {
 	if strings.HasSuffix(file.Filename, ".wav") {
 		// generate random filename, and save file to `cache_path`
 		cacheFile1 := path.Join(cache_dir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename))
-		cacheFile2 := path.Join(cache_dir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename+".mp3"))
+		cacheFile2 := path.Join(cache_dir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename+".pcm"))
 		err = c.SaveUploadedFile(file, cacheFile1)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file: " + err.Error()})
 			return
 		}
-		err = convertFileWavToMp3(cacheFile1, cacheFile2)
+		err = convertFileWavToPcm(cacheFile1, cacheFile2)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert file: " + err.Error()})
 			return

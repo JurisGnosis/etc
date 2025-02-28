@@ -13,9 +13,10 @@ func init() {
 	}
 }
 
-func convertFileWavToMp3(wavFile string, mp3File string) error {
+func convertFileWavToPcm(wavFile string, pcmFile string) error {
 	// Construct the FFmpeg command
-	command := exec.Command("ffmpeg", "-i", wavFile, mp3File)
+	// ffmpeg -i 20250228_094921.wav -y  -acodec pcm_s16le -f s16le -ac 1 -ar 16000 20250228_094921.pcm
+	command := exec.Command("ffmpeg", "-i", wavFile, "-y", "-acodec", "pcm_s16le", "-f", "s16le", "-ac", "1", "-ar", "16000", pcmFile)
 	// Run the command and capture any possible error
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("Error converting file: %v", err)
