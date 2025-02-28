@@ -45,6 +45,41 @@ type WsParam struct {
 	IatParams map[string]interface{}
 }
 
+type WordInfo struct {
+	Sc float64 `json:"sc"`
+	W  string  `json:"w"`
+}
+
+type WordSegment struct {
+	Bg int        `json:"bg"`
+	Cw []WordInfo `json:"cw"`
+}
+
+type APIData struct {
+	Sn int           `json:"sn"`
+	Ls bool          `json:"ls"`
+	Bg int           `json:"bg"`
+	Ed int           `json:"ed"`
+	Ws []WordSegment `json:"ws"`
+}
+
+func ExtractTextFromJSON(data string) (string, error) {
+	var apiData APIData
+	// 解析 JSON 数据
+	err := json.Unmarshal([]byte(data), &apiData)
+	if err != nil {
+		return "", err
+	}
+	// 合并提取的文本内容
+	var textContent string
+	for _, segment := range apiData.Ws {
+		for _, wordInfo := range segment.Cw {
+			textContent += wordInfo.W
+		}
+	}
+	return textContent, nil
+}
+
 func (wsParam *WsParam) createUrl() string {
 	baseUrl := "wss://iat.cn-huabei-1.xf-yun.com/v1"
 	host := "iat.cn-huabei-1.xf-yun.com"
@@ -151,7 +186,8 @@ func processAudio(audioData []byte, c *gin.Context) {
 	defer ws.Close()
 
 	onOpen(ws, audioData)
-	onMessage(ws, c)
+	retText := onMessage(ws, c)
+	c.String(http.StatusOK, "{\"code\":200,\"msg\":\"Success\",\"data\":{\"ret\":1,\"data\":\"%s\"}}", retText)
 }
 
 func onOpen(ws *websocket.Conn, audioData []byte) {
@@ -239,7 +275,7 @@ type wsApiResult struct {
 	Text     string `json:"text"`
 }
 
-func onMessage(ws *websocket.Conn, c *gin.Context) {
+func onMessage(ws *websocket.Conn, c *gin.Context) (retText string) {
 	for {
 		_, message, err := ws.ReadMessage()
 		fmt.Println(string(message))
@@ -267,11 +303,16 @@ func onMessage(ws *websocket.Conn, c *gin.Context) {
 		payload := response.Payload
 		resultText := payload.Result.Text
 		decodedText, _ := base64.StdEncoding.DecodeString(resultText)
-		c.String(http.StatusOK, "Result: %s\n", string(decodedText))
-
+		partialText, err := ExtractTextFromJSON(string(decodedText))
+		if err != nil {
+			c.String(http.StatusBadGateway, err.Error())
+		}
+		retText = retText + partialText
+		// c.String(http.StatusOK, "Result: %s\n", string(decodedText))
 		if status == 2 {
 			ws.Close()
 			break
 		}
 	}
+	return
 }
