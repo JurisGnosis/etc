@@ -278,7 +278,6 @@ type wsApiResult struct {
 func onMessage(ws *websocket.Conn) (retText string) {
 	for {
 		_, message, err := ws.ReadMessage()
-		fmt.Println(string(message))
 		if err != nil {
 			log.Println("read:", err)
 			return
@@ -288,11 +287,13 @@ func onMessage(ws *websocket.Conn) (retText string) {
 			log.Println("json parse error:", err)
 			continue
 		}
-		fmt.Println(response)
+		fmt.Println(string(message))
 
 		header := response.Header
 		code := header.Code
-		status := header.Status
+		// status := header.Status
+		fmt.Println(header.Status)
+		fmt.Println(response.Payload.Result.Status)
 
 		if code != 0 {
 			log.Printf("请求错误：%d\n", int(code))
@@ -309,7 +310,8 @@ func onMessage(ws *websocket.Conn) (retText string) {
 		}
 		retText = retText + partialText
 		// c.String(http.StatusOK, "Result: %s\n", string(decodedText))
-		if status == 2 {
+		// if status == 2 {
+		if response.Payload.Result.Status == 1 {
 			ws.Close()
 			break
 		}
