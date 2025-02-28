@@ -186,7 +186,7 @@ func processAudio(audioData []byte, c *gin.Context) {
 	defer ws.Close()
 
 	onOpen(ws, audioData)
-	retText := onMessage(ws, c)
+	retText := onMessage(ws)
 	c.String(http.StatusOK, "{\"code\":200,\"msg\":\"Success\",\"data\":{\"ret\":1,\"data\":\"%s\"}}", retText)
 }
 
@@ -275,7 +275,7 @@ type wsApiResult struct {
 	Text     string `json:"text"`
 }
 
-func onMessage(ws *websocket.Conn, c *gin.Context) (retText string) {
+func onMessage(ws *websocket.Conn) (retText string) {
 	for {
 		_, message, err := ws.ReadMessage()
 		fmt.Println(string(message))
@@ -305,7 +305,7 @@ func onMessage(ws *websocket.Conn, c *gin.Context) (retText string) {
 		decodedText, _ := base64.StdEncoding.DecodeString(resultText)
 		partialText, err := ExtractTextFromJSON(string(decodedText))
 		if err != nil {
-			c.String(http.StatusBadGateway, err.Error())
+			log.Printf("解析失败: %s, %s", err.Error(), string(decodedText))
 		}
 		retText = retText + partialText
 		// c.String(http.StatusOK, "Result: %s\n", string(decodedText))
