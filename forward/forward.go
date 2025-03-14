@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +11,10 @@ import (
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the client's request URL directly
-	targetUrl := "http://127.0.0.1:9303/api/lawyer/master/shenshan/system/message/list"
+	targetUrl := "http://47.107.101.100:9303/system/message/list"
+	fmt.Println(r.URL.RawQuery)
+	str, _ := json.Marshal(r)
+	fmt.Println(str)
 	if r.URL.RawQuery != "" {
 		targetUrl += "?" + r.URL.RawQuery
 	}
