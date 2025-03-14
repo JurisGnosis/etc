@@ -9,13 +9,10 @@ import (
 )
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
-	targetUrl := r.URL.Query().Get("url")
-
-	// Validate URL is not empty
-	fmt.Println("targetUrl:", targetUrl)
-	if targetUrl == "" {
-		http.Error(w, "URL parameter is required", http.StatusBadRequest)
-		return
+	// Use the client's request URL directly
+	targetUrl := fmt.Sprintf("%s://%s%s", r.URL.Scheme, r.Host, r.URL.Path)
+	if r.URL.RawQuery != "" {
+		targetUrl += "?" + r.URL.RawQuery
 	}
 
 	// Check for invalid URL suffix
