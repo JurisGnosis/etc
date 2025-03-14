@@ -10,7 +10,7 @@ import (
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the client's request URL directly
-	targetUrl := fmt.Sprintf("%s://%s%s", r.URL.Scheme, r.Host, r.URL.Path)
+	targetUrl := "http://127.0.0.1:9303/api/lawyer/master/shenshan/system/message/list"
 	if r.URL.RawQuery != "" {
 		targetUrl += "?" + r.URL.RawQuery
 	}
@@ -20,16 +20,6 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid URL format", http.StatusBadRequest)
 		return
 	}
-
-	// Ensure URL has a protocol
-	if !strings.HasPrefix(targetUrl, "http://") && !strings.HasPrefix(targetUrl, "https://") {
-		targetUrl = "http://" + targetUrl
-	}
-
-	// URL replacements for redirecting to the correct backend
-	targetUrl = strings.Replace(targetUrl, "lawyer.dlaws.cn:9900/", "47.107.101.100:9303/", 1)
-	targetUrl = strings.Replace(targetUrl, "47.107.101.100:9304/", "47.107.101.100:9303/", 1)
-	fmt.Println("targetUrl:", targetUrl)
 
 	// Create new request
 	req, err := http.NewRequest(r.Method, targetUrl, r.Body)
