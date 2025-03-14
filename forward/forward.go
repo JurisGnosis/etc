@@ -18,6 +18,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 创建新的请求
 	targetUrl = strings.Replace(targetUrl, "https://lawyer.dlaws.cn:9900/", "http://47.107.101.100:9303/", 1)
+	targetUrl = strings.Replace(targetUrl, "http://47.107.101.100:9304/", "http://47.107.101.100:9303/", 1)
 	req, err := http.NewRequest(r.Method, targetUrl, r.Body)
 	if err != nil {
 		http.Error(w, "Error creating request: "+err.Error(), http.StatusInternalServerError)
