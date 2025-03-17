@@ -25,8 +25,8 @@ var frontendPublicPath string
 var testFileName = "access_check.tmp"
 
 // Init initializes the local filesystem storage with the provided base directory and settings
-// frontendPublicPath is the public URL path that maps to storageDir, used for constructing URLs in upload methods
-func Init(storageDir string, sha1Key string, frontendPublicPath string) (err error) {
+// publicPathPrefix is the public URL path that maps to storageDir, used for constructing URLs in upload methods
+func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error) {
 	// 验证存储目录是否存在，如果不存在则创建
 	if _, err = os.Stat(storageDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(storageDir, 0755); err != nil {
@@ -67,7 +67,7 @@ func Init(storageDir string, sha1Key string, frontendPublicPath string) (err err
 	// 设置全局变量
 	baseStorageDir = storageDir
 	usernameSalt = sha1Key
-	frontendPublicPath = frontendPublicPath
+	frontendPublicPath = publicPathPrefix
 
 	slog.Info("local filesystem storage initialized successfully", "directory", storageDir)
 	return nil
