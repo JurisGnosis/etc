@@ -18,11 +18,15 @@ var baseStorageDir string
 // 与用户路径计算相关，建议不要修改
 var usernameSalt string
 
+// 前端访问文件的公共路径
+var frontendPublicPath string
+
 // 用于检查文件系统权限的测试文件名
 var testFileName = "access_check.tmp"
 
 // Init initializes the local filesystem storage with the provided base directory and settings
-func Init(storageDir string, sha1Key string) (err error) {
+// frontendPublicPath is the public URL path that maps to storageDir, used for constructing URLs in upload methods
+func Init(storageDir string, sha1Key string, frontendPublicPath string) (err error) {
 	// 验证存储目录是否存在，如果不存在则创建
 	if _, err = os.Stat(storageDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(storageDir, 0755); err != nil {
@@ -63,6 +67,7 @@ func Init(storageDir string, sha1Key string) (err error) {
 	// 设置全局变量
 	baseStorageDir = storageDir
 	usernameSalt = sha1Key
+	frontendPublicPath = frontendPublicPath
 
 	slog.Info("local filesystem storage initialized successfully", "directory", storageDir)
 	return nil
@@ -122,8 +127,12 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 		return "", fmt.Errorf("failed to copy file content: %w", err)
 	}
 
-	slog.Info("file uploaded successfully", "source", localFilePath, "destination", destPath)
-	return destPath, nil
+	// 构建前端访问URL
+	relativePath := destPath[len(baseStorageDir):]
+	publicURL := filepath.Join(frontendPublicPath, filepath.ToSlash(relativePath))
+
+	slog.Info("file uploaded successfully", "source", localFilePath, "destination", destPath, "publicURL", publicURL)
+	return publicURL, nil
 }
 
 // UploadRawContent writes string content to a file in the storage location
@@ -149,6 +158,10 @@ func UploadRawContent(sourceFileName string, targetFileName string, userIdentifi
 		return "", fmt.Errorf("failed to write content to file: %w", err)
 	}
 
-	slog.Info("content uploaded successfully", "destination", destPath)
-	return destPath, nil
+	// 构建前端访问URL
+	relativePath := destPath[len(baseStorageDir):]
+	publicURL := filepath.Join(frontendPublicPath, filepath.ToSlash(relativePath))
+
+	slog.Info("content uploaded successfully", "destination", destPath, "publicURL", publicURL)
+	return publicURL, nil
 }
