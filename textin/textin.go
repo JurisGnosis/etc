@@ -121,7 +121,7 @@ func Pdf2MarkdownFromLocal(filePath string) (markdownText string, err error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Request time: ", time.Duration(time.Now().Sub(start)))
+	fmt.Println("Request time: ", time.Since(start))
 
 	var jsonData Response
 	if err = json.NewDecoder(resp.Body).Decode(&jsonData); err != nil {
@@ -145,7 +145,7 @@ func Pdf2MarkdownFromUrl(url string) (markdownText string, err error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("Request time: ", time.Duration(time.Now().Sub(start)))
+	fmt.Println("Request time: ", time.Since(start))
 
 	var jsonData Response
 	if err = json.NewDecoder(resp.Body).Decode(&jsonData); err != nil {
