@@ -7,7 +7,11 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"e.coding.net/Love54dj/weizhong/etc/ryconn"
 )
+
+const TEST_SESSION_ID = "e5b21a57889541ffa01c6e387da971cd"
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Use the client's request URL directly
@@ -23,6 +27,20 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(targetUrl, "senderId=") {
 		http.Error(w, "Invalid URL format", http.StatusBadRequest)
 		return
+	}
+
+	// Check auth
+	auth := r.Header.Get("Authorization")
+	if !strings.HasSuffix(targetUrl, TEST_SESSION_ID) {
+		if auth == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_, err := ryconn.AuthToMobile(auth)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
 	}
 
 	// Create new request

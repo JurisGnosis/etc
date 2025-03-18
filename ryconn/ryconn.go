@@ -41,5 +41,9 @@ func AuthToMobile(autoToken string) (mobile string, err error) {
 		return
 	}
 	mobile = respStruct.Data.Mobile
+	if mobile == "" {
+		err = errors.New("Not logged in.")
+		return
+	}
 	return
 }
