@@ -136,7 +136,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 }
 
 // UploadRawContent writes string content to a file in the storage location
-func UploadRawContent(sourceFileName string, targetFileName string, userIdentifier string) (filePath string, err error) {
+func UploadRawContent(plainText string, targetFileName string, userIdentifier string) (filePath string, err error) {
 	// 生成目标路径
 	destPath := GetStoragePath(targetFileName, userIdentifier)
 	destDir := filepath.Dir(destPath)
@@ -148,12 +148,7 @@ func UploadRawContent(sourceFileName string, targetFileName string, userIdentifi
 	}
 
 	// 写入内容到文件
-	sourceContent, err := os.ReadFile(sourceFileName)
-	if err != nil {
-		slog.Error("failed to read source file", "path", sourceFileName, "error", err)
-		return "", fmt.Errorf("failed to read source file: %w", err)
-	}
-	if err = os.WriteFile(destPath, sourceContent, 0644); err != nil {
+	if err = os.WriteFile(destPath, []byte(plainText), 0644); err != nil {
 		slog.Error("failed to write content to file", "path", destPath, "error", err)
 		return "", fmt.Errorf("failed to write content to file: %w", err)
 	}
