@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -183,12 +184,24 @@ func GetIdByAuth(auth string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// Print the response body
+	fmt.Println("Response body:", string(bodyBytes))
+
+	// Create a new reader from the bytes for JSON decoding
+	bodyReader := bytes.NewReader(bodyBytes)
+
 	var data struct {
 		Data struct {
 			Id string `json:"id"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(bodyReader).Decode(&data); err != nil {
 		return "", err
 	}
 	return data.Data.Id, nil
@@ -208,12 +221,24 @@ func GetSenderIdByAuth(userId string, auth string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	// Read the response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// Print the response body
+	fmt.Println("Response body:", string(bodyBytes))
+
+	// Create a new reader from the bytes for JSON decoding
+	bodyReader := bytes.NewReader(bodyBytes)
+
 	var data struct {
 		Data struct {
 			SenderId string `json:"senderId"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(bodyReader).Decode(&data); err != nil {
 		return "", err
 	}
 	return data.Data.SenderId, nil
