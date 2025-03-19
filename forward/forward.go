@@ -45,7 +45,14 @@ func DefaultConfig() *Config {
 				TargetPath:    "/system/message/list",
 				AuthValidator: &MessageListAuthValidator{},
 				Middleware: []Middleware{
-					&MessageRequestHandler{},
+					&MessageListHandler{},
+				},
+			},
+			"/system/message": {
+				TargetPath:    "/system/message",
+				AuthValidator: &MessageAuthValidator{},
+				Middleware: []Middleware{
+					&MessageHandler{},
 				},
 			},
 			"/logout": {
@@ -109,6 +116,22 @@ func (v *MessageListAuthValidator) Validate(r *http.Request) (string, error) {
 	return v.TokenAuthValidator.Validate(r)
 }
 
+// MessageAuthValidator validates authentication for message
+type MessageAuthValidator struct {
+	TokenAuthValidator
+}
+
+func (v *MessageAuthValidator) Validate(r *http.Request) (string, error) {
+	// Special case for test session
+	targetUrl := r.URL.String()
+	if strings.Contains(targetUrl, TestSessionID) {
+		return "", nil
+	}
+
+	// Otherwise use token validation
+	return v.TokenAuthValidator.Validate(r)
+}
+
 // SenderIDValidator validates the sender ID in the request
 type SenderIDValidator struct{}
 
@@ -137,9 +160,6 @@ func (m *SenderIDValidator) Process(w http.ResponseWriter, r *http.Request, auth
 	return nil
 }
 
-// MessageRequestHandler handles both GET and POST requests for message list
-type MessageRequestHandler struct{}
-
 // Message represents the message request body structure
 type Message struct {
 	ID         int64  `json:"id"`
@@ -150,14 +170,24 @@ type Message struct {
 	UserID     int    `json:"userId"`
 }
 
-func (m *MessageRequestHandler) Process(w http.ResponseWriter, r *http.Request, auth string) error {
-	// Handle GET requests using the existing SenderIDValidator logic
+// MessageListHandler handles GET requests for message list
+type MessageListHandler struct{}
+
+func (m *MessageListHandler) Process(w http.ResponseWriter, r *http.Request, auth string) error {
+	// Only handle GET requests for message list
 	if r.Method == http.MethodGet {
 		validator := &SenderIDValidator{}
 		return validator.Process(w, r, auth)
 	}
 
-	// Handle POST requests
+	return fmt.Errorf("unsupported HTTP method for /system/message/list: %s", r.Method)
+}
+
+// MessageHandler handles POST requests for message
+type MessageHandler struct{}
+
+func (m *MessageHandler) Process(w http.ResponseWriter, r *http.Request, auth string) error {
+	// Only handle POST requests for message
 	if r.Method == http.MethodPost {
 		// Read and parse the request body
 		var msg Message
@@ -195,7 +225,7 @@ func (m *MessageRequestHandler) Process(w http.ResponseWriter, r *http.Request, 
 		return nil
 	}
 
-	return fmt.Errorf("unsupported HTTP method: %s", r.Method)
+	return fmt.Errorf("unsupported HTTP method for /system/message: %s", r.Method)
 }
 
 // ProxyServer represents the proxy server
