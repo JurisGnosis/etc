@@ -22,9 +22,9 @@ const (
 
 // Config holds the configuration for the proxy server
 type Config struct {
-	BaseURL     string
+	BaseURL      string
 	LoginInfoURL string
-	Routes      map[string]*RouteConfig
+	Routes       map[string]*RouteConfig
 }
 
 // RouteConfig holds the configuration for a specific route
@@ -38,14 +38,14 @@ type RouteConfig struct {
 func DefaultConfig() *Config {
 	baseURL := "http://47.107.101.100:9303"
 	return &Config{
-		BaseURL:     baseURL,
+		BaseURL:      baseURL,
 		LoginInfoURL: baseURL + "/system/loginInfo",
 		Routes: map[string]*RouteConfig{
 			"/system/message/list": {
 				TargetPath:    "/system/message/list",
 				AuthValidator: &MessageListAuthValidator{},
 				Middleware: []Middleware{
-					&SenderIDValidator{},
+					&MessageRequestHandler{},
 				},
 			},
 			"/logout": {
@@ -104,7 +104,7 @@ func (v *MessageListAuthValidator) Validate(r *http.Request) (string, error) {
 	if strings.Contains(targetUrl, TestSessionID) {
 		return "", nil
 	}
-	
+
 	// Otherwise use token validation
 	return v.TokenAuthValidator.Validate(r)
 }
@@ -133,8 +133,69 @@ func (m *SenderIDValidator) Process(w http.ResponseWriter, r *http.Request, auth
 	if requestSenderId != standardSenderId {
 		return fmt.Errorf("invalid senderId")
 	}
-	
+
 	return nil
+}
+
+// MessageRequestHandler handles both GET and POST requests for message list
+type MessageRequestHandler struct{}
+
+// Message represents the message request body structure
+type Message struct {
+	ID         int64  `json:"id"`
+	MsgText    string `json:"msgText"`
+	MsgType    int    `json:"msgType"`
+	SenderID   string `json:"senderId"`
+	SourceType int    `json:"sourceType"`
+	UserID     int    `json:"userId"`
+}
+
+func (m *MessageRequestHandler) Process(w http.ResponseWriter, r *http.Request, auth string) error {
+	// Handle GET requests using the existing SenderIDValidator logic
+	if r.Method == http.MethodGet {
+		validator := &SenderIDValidator{}
+		return validator.Process(w, r, auth)
+	}
+
+	// Handle POST requests
+	if r.Method == http.MethodPost {
+		// Read and parse the request body
+		var msg Message
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return fmt.Errorf("error reading request body: %v", err)
+		}
+
+		// Create a new reader from the body for the forwarded request
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		// Unmarshal the JSON body
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return fmt.Errorf("invalid JSON format: %v", err)
+		}
+
+		// Validate that senderId and userId
+		if msg.SenderID == "" {
+			return fmt.Errorf("missing senderId in request body")
+		}
+
+		if msg.UserID == 0 {
+			return fmt.Errorf("missing or invalid userId in request body")
+		}
+
+		senderId, err := GetSenderIdByAuth(strconv.Itoa(msg.UserID), auth)
+		if err != nil {
+			return err
+		}
+
+		if senderId != msg.SenderID {
+			return fmt.Errorf("invalid senderId")
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("unsupported HTTP method: %s", r.Method)
 }
 
 // ProxyServer represents the proxy server
@@ -240,7 +301,7 @@ func GetIdByAuth(auth string) (string, error) {
 	if auth == "" {
 		return "", fmt.Errorf("empty authorization token")
 	}
-	
+
 	config := DefaultConfig()
 	req, err := http.NewRequest("GET", config.LoginInfoURL, nil)
 	if err != nil {
@@ -282,7 +343,7 @@ func GetSenderIdByAuth(userId string, auth string) (string, error) {
 	if userId == "" || auth == "" {
 		return "", fmt.Errorf("empty userId or authorization token")
 	}
-	
+
 	config := DefaultConfig()
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/system/session/digital/%s/%s", config.BaseURL, userId, FixedLawyerId), nil)
 	if err != nil {
@@ -322,12 +383,12 @@ func GetSenderIdByAuth(userId string, auth string) (string, error) {
 // ServeOnPort starts the proxy server on the specified port
 func ServeOnPort(port int) {
 	proxyServer := NewProxyServer(nil) // Use default config
-	
+
 	// Register handlers for each route
 	for route := range proxyServer.Config.Routes {
 		http.Handle(route, proxyServer)
 	}
-	
+
 	log.Printf("Starting proxy server on port :%d", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
