@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -67,7 +68,11 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 	// 设置全局变量
 	baseStorageDir = storageDir
 	usernameSalt = sha1Key
-	frontendPublicPath = publicPathPrefix
+	if strings.HasSuffix(publicPathPrefix, "/") {
+		frontendPublicPath = publicPathPrefix
+	} else {
+		frontendPublicPath = publicPathPrefix + "/"
+	}
 
 	slog.Info("local filesystem storage initialized successfully", "directory", storageDir)
 	return nil
@@ -129,7 +134,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 
 	// 构建前端访问URL
 	relativePath := destPath[len(baseStorageDir):]
-	publicURL := filepath.Join(frontendPublicPath, filepath.ToSlash(relativePath))
+	publicURL := frontendPublicPath + filepath.ToSlash(relativePath)
 
 	slog.Info("file uploaded successfully", "source", localFilePath, "destination", destPath, "publicURL", publicURL)
 	return publicURL, nil
@@ -155,7 +160,7 @@ func UploadRawContent(plainText string, targetFileName string, userIdentifier st
 
 	// 构建前端访问URL
 	relativePath := destPath[len(baseStorageDir):]
-	publicURL := filepath.Join(frontendPublicPath, filepath.ToSlash(relativePath))
+	publicURL := frontendPublicPath + filepath.ToSlash(relativePath)
 
 	slog.Info("content uploaded successfully", "destination", destPath, "publicURL", publicURL)
 	return publicURL, nil
