@@ -218,8 +218,12 @@ func NewProxyServer(config *Config) *ProxyServer {
 // ServeHTTP handles HTTP requests
 func (s *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	// Log the HTTP method and path
+	log.Printf("[REQUEST] Method: %s, Path: %s", r.Method, path)
+
 	routeConfig, exists := s.Config.Routes[path]
 	if !exists {
+		log.Printf("[ERROR] Route not found for path: %s", path)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -227,19 +231,24 @@ func (s *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate authentication
 	auth, err := routeConfig.AuthValidator.Validate(r)
 	if err != nil {
+		log.Printf("[ERROR] Authentication failed for path: %s, error: %v", path, err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	log.Printf("[INFO] Authentication successful for path: %s", path)
 
 	// Apply middleware
-	for _, middleware := range routeConfig.Middleware {
+	for i, middleware := range routeConfig.Middleware {
+		log.Printf("[INFO] Applying middleware %d for path: %s", i, path)
 		if err := middleware.Process(w, r, auth); err != nil {
+			log.Printf("[ERROR] Middleware %d failed for path: %s, error: %v", i, path, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
 	// Forward the request
+	log.Printf("[INFO] Forwarding request to target path: %s", routeConfig.TargetPath)
 	s.forwardRequest(w, r, routeConfig.TargetPath)
 }
 
@@ -322,7 +331,7 @@ func GetIdByAuth(auth string) (string, error) {
 	}
 
 	// Print the response body
-	fmt.Println("Response body:", string(bodyBytes))
+	// fmt.Println("Response body:", string(bodyBytes))
 
 	// Create a new reader from the bytes for JSON decoding
 	bodyReader := bytes.NewReader(bodyBytes)
@@ -364,7 +373,7 @@ func GetSenderIdByAuth(userId string, auth string) (string, error) {
 	}
 
 	// Print the response body
-	fmt.Println("Response body:", string(bodyBytes))
+	// fmt.Println("Response body:", string(bodyBytes))
 
 	// Create a new reader from the bytes for JSON decoding
 	bodyReader := bytes.NewReader(bodyBytes)
