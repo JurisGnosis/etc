@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"e.coding.net/Love54dj/weizhong/etc/ryconn"
@@ -198,13 +199,13 @@ func GetIdByAuth(auth string) (string, error) {
 
 	var data struct {
 		Data struct {
-			Id string `json:"id"`
+			Id int `json:"id"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(bodyReader).Decode(&data); err != nil {
 		return "", err
 	}
-	return data.Data.Id, nil
+	return strconv.Itoa(data.Data.Id), nil
 
 }
 
