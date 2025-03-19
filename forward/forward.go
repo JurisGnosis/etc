@@ -14,6 +14,11 @@ import (
 const TEST_SESSION_ID = "e5b21a57889541ffa01c6e387da971cd"
 const VALID_REFERER = "https://servicewechat.com/"
 
+// whatever
+const loginInfoUrl = "http://47.107.101.100:9303/system/loginInfo"
+const baseUrl = "http://47.107.101.100:9303"
+const fixedLawyerId = "132"
+
 func proxyHandlerMessageList(w http.ResponseWriter, r *http.Request) {
 	// Use the client's request URL directly
 	targetUrl := "http://47.107.101.100:9303/system/message/list"
@@ -42,6 +47,25 @@ func proxyHandlerMessageList(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
+	}
+
+	// Get userId
+	userId, err := GetIdByAuth(auth)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Check senderId
+	requestSenderId := r.URL.Query().Get("senderId")
+	standardSenderId, err := GetSenderIdByAuth(userId, auth)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if requestSenderId != standardSenderId {
+		http.Error(w, "Invalid senderId", http.StatusUnauthorized)
+		return
 	}
 
 	// Create new request
@@ -144,6 +168,55 @@ func proxyHandlerLogout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error writing response: %v", err)
 	}
+}
+
+func GetIdByAuth(auth string) (string, error) {
+	req, err := http.NewRequest("GET", loginInfoUrl, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", auth)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Data struct {
+			Id string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", err
+	}
+	return data.Data.Id, nil
+
+}
+
+func GetSenderIdByAuth(userId string, auth string) (string, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/system/session/digital/%s/%s", baseUrl, userId, fixedLawyerId), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", auth)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Data struct {
+			SenderId string `json:"senderId"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", err
+	}
+	return data.Data.SenderId, nil
 }
 
 func ServeOnPort(port int) {
