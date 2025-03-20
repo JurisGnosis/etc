@@ -28,6 +28,7 @@ var testFileName = "access_check.tmp"
 // Init initializes the local filesystem storage with the provided base directory and settings
 // publicPathPrefix is the public URL path that maps to storageDir, used for constructing URLs in upload methods
 func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error) {
+	slog.Info("initializing local filesystem storage", "directory", storageDir, "publicPathPrefix", publicPathPrefix)
 	// 验证存储目录是否存在，如果不存在则创建
 	if _, err = os.Stat(storageDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(storageDir, 0755); err != nil {
@@ -68,6 +69,16 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 	// 设置全局变量
 	baseStorageDir = storageDir
 	usernameSalt = sha1Key
+	
+	// 确保URL格式正确
+	// 1. 确保协议后有双斜杠
+	if strings.HasPrefix(publicPathPrefix, "http:") && !strings.HasPrefix(publicPathPrefix, "http://") {
+		publicPathPrefix = "http://" + strings.TrimPrefix(publicPathPrefix, "http:/")
+	} else if strings.HasPrefix(publicPathPrefix, "https:") && !strings.HasPrefix(publicPathPrefix, "https://") {
+		publicPathPrefix = "https://" + strings.TrimPrefix(publicPathPrefix, "https:/")
+	}
+	
+	// 2. 确保末尾有斜杠
 	if strings.HasSuffix(publicPathPrefix, "/") {
 		frontendPublicPath = publicPathPrefix
 	} else {
@@ -94,6 +105,7 @@ func GetStoragePath(targetFileName string, userIdentifier string) string {
 
 // Upload copies a file from a source path to the storage location
 func Upload(localFilePath string, targetFileName string, userIdentifier string) (filePath string, err error) {
+	slog.Info("uploading file", "localFilePath", localFilePath, "targetFileName", targetFileName, "userIdentifier", userIdentifier, "frontendPublicPath", frontendPublicPath)
 	// 检查源文件是否存在
 	if _, err = os.Stat(localFilePath); os.IsNotExist(err) {
 		slog.Error("source file does not exist", "path", localFilePath)
@@ -142,6 +154,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 
 // UploadRawContent writes string content to a file in the storage location
 func UploadRawContent(plainText string, targetFileName string, userIdentifier string) (filePath string, err error) {
+	slog.Info("uploading raw content", "targetFileName", targetFileName, "userIdentifier", userIdentifier, "frontendPublicPath", frontendPublicPath)
 	// 生成目标路径
 	destPath := GetStoragePath(targetFileName, userIdentifier)
 	destDir := filepath.Dir(destPath)
