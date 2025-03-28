@@ -19,12 +19,17 @@ func Init(host string, token string) {
 
 func Pdf2Markdown(fileUrl string) (markdownText string, err error) {
 	if authToken == "" || baseUrl == "" {
-		slog.Error("marker-pdf needs initialization")
+		err = fmt.Errorf("marker-pdf needs initialization")
+		slog.Error(err.Error())
 		return
 	}
 	tmpBody, _ := json.Marshal(map[string]string{"file_url": fileUrl})
 	req, err := http.NewRequest(http.MethodPost, baseUrl, bytes.NewBuffer(tmpBody))
+	if err != nil {
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", authToken)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
