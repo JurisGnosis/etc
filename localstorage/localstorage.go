@@ -69,7 +69,7 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 	// 设置全局变量
 	baseStorageDir = storageDir
 	usernameSalt = sha1Key
-	
+
 	// 确保URL格式正确
 	// 1. 确保协议后有双斜杠
 	if strings.HasPrefix(publicPathPrefix, "http:") && !strings.HasPrefix(publicPathPrefix, "http://") {
@@ -77,12 +77,12 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 	} else if strings.HasPrefix(publicPathPrefix, "https:") && !strings.HasPrefix(publicPathPrefix, "https://") {
 		publicPathPrefix = "https://" + strings.TrimPrefix(publicPathPrefix, "https:/")
 	}
-	
-	// 2. 确保末尾有斜杠
+
+	// 2. 确保末尾没有斜杠
 	if strings.HasSuffix(publicPathPrefix, "/") {
-		frontendPublicPath = publicPathPrefix
+		frontendPublicPath = strings.TrimSuffix(publicPathPrefix, "/")
 	} else {
-		frontendPublicPath = publicPathPrefix + "/"
+		frontendPublicPath = publicPathPrefix
 	}
 
 	slog.Info("local filesystem storage initialized successfully", "directory", storageDir)
@@ -146,7 +146,13 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 
 	// 构建前端访问URL
 	relativePath := destPath[len(baseStorageDir):]
-	publicURL := frontendPublicPath + filepath.ToSlash(relativePath)
+	var publicURL string
+	relativePath = filepath.ToSlash(relativePath)
+	if strings.HasPrefix(relativePath, "/") {
+		publicURL = frontendPublicPath + relativePath
+	} else {
+		publicURL = frontendPublicPath + "/" + relativePath
+	}
 
 	slog.Info("file uploaded successfully", "source", localFilePath, "destination", destPath, "publicURL", publicURL)
 	return publicURL, nil
@@ -173,7 +179,13 @@ func UploadRawContent(plainText string, targetFileName string, userIdentifier st
 
 	// 构建前端访问URL
 	relativePath := destPath[len(baseStorageDir):]
-	publicURL := frontendPublicPath + filepath.ToSlash(relativePath)
+	relativePath = filepath.ToSlash(relativePath)
+	var publicURL string
+	if strings.HasPrefix(relativePath, "/") {
+		publicURL = frontendPublicPath + relativePath
+	} else {
+		publicURL = frontendPublicPath + "/" + relativePath
+	}
 
 	slog.Info("content uploaded successfully", "destination", destPath, "publicURL", publicURL)
 	return publicURL, nil
