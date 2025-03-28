@@ -31,7 +31,7 @@ func Pdf2Markdown(fileUrl string) (markdownText string, err error) {
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	if err == nil && req.Response.StatusCode != http.StatusOK {
+	if err == nil && resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("API request failed: %s", body)
 	}
 	markdownText = string(body)
