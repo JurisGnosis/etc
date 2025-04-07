@@ -7,10 +7,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 )
 
 var baseUrl string
 var authToken string
+var singleThreadMutex sync.Mutex
 
 func Init(host string, token string) {
 	baseUrl = fmt.Sprintf("http://%s/convert", host)
@@ -23,6 +25,8 @@ func Pdf2Markdown(fileUrl string) (markdownText string, err error) {
 		slog.Error(err.Error())
 		return
 	}
+	singleThreadMutex.Lock()
+	defer singleThreadMutex.Unlock()
 	tmpBody, _ := json.Marshal(map[string]string{"file_url": fileUrl})
 	req, err := http.NewRequest(http.MethodPost, baseUrl, bytes.NewBuffer(tmpBody))
 	if err != nil {
