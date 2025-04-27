@@ -31,7 +31,7 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 	slog.Info("initializing local filesystem storage", "directory", storageDir, "publicPathPrefix", publicPathPrefix)
 	// 验证存储目录是否存在，如果不存在则创建
 	if _, err = os.Stat(storageDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(storageDir, 0755); err != nil {
+		if err = os.MkdirAll(storageDir, 0777); err != nil {
 			slog.Error("failed to create storage directory", "error", err)
 			return
 		}
@@ -42,7 +42,7 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 
 	// 尝试写入测试文件
 	testContent := time.Now().String()
-	if err = os.WriteFile(testFilePath, []byte(testContent), 0644); err != nil {
+	if err = os.WriteFile(testFilePath, []byte(testContent), 0766); err != nil {
 		slog.Error("write permission check failed", "error", err)
 		return errors.New("storage directory write permission check failed")
 	}
@@ -117,7 +117,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 	destDir := filepath.Dir(destPath)
 
 	// 确保目标目录存在
-	if err = os.MkdirAll(destDir, 0755); err != nil {
+	if err = os.MkdirAll(destDir, 0766); err != nil {
 		slog.Error("failed to create destination directory", "directory", destDir, "error", err)
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
@@ -166,13 +166,13 @@ func UploadRawContent(plainText string, targetFileName string, userIdentifier st
 	destDir := filepath.Dir(destPath)
 
 	// 确保目标目录存在
-	if err = os.MkdirAll(destDir, 0755); err != nil {
+	if err = os.MkdirAll(destDir, 0777); err != nil {
 		slog.Error("failed to create destination directory", "directory", destDir, "error", err)
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// 写入内容到文件
-	if err = os.WriteFile(destPath, []byte(plainText), 0644); err != nil {
+	if err = os.WriteFile(destPath, []byte(plainText), 0766); err != nil {
 		slog.Error("failed to write content to file", "path", destPath, "error", err)
 		return "", fmt.Errorf("failed to write content to file: %w", err)
 	}
