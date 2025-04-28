@@ -42,7 +42,7 @@ func Init(storageDir string, sha1Key string, publicPathPrefix string) (err error
 
 	// 尝试写入测试文件
 	testContent := time.Now().String()
-	if err = os.WriteFile(testFilePath, []byte(testContent), 0766); err != nil {
+	if err = os.WriteFile(testFilePath, []byte(testContent), 0777); err != nil {
 		slog.Error("write permission check failed", "error", err)
 		return errors.New("storage directory write permission check failed")
 	}
@@ -117,7 +117,7 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 	destDir := filepath.Dir(destPath)
 
 	// 确保目标目录存在
-	if err = os.MkdirAll(destDir, 0766); err != nil {
+	if err = os.MkdirAll(destDir, 0777); err != nil {
 		slog.Error("failed to create destination directory", "directory", destDir, "error", err)
 		return "", fmt.Errorf("failed to create destination directory: %w", err)
 	}
@@ -137,6 +137,12 @@ func Upload(localFilePath string, targetFileName string, userIdentifier string) 
 		return "", fmt.Errorf("failed to create destination file: %w", err)
 	}
 	defer destFile.Close()
+
+	// 设置文件权限为777
+	if err = os.Chmod(destPath, 0777); err != nil {
+		slog.Error("failed to set file permissions", "path", destPath, "error", err)
+		return "", fmt.Errorf("failed to set file permissions: %w", err)
+	}
 
 	// 复制文件内容
 	if _, err = io.Copy(destFile, srcFile); err != nil {
@@ -172,7 +178,7 @@ func UploadRawContent(plainText string, targetFileName string, userIdentifier st
 	}
 
 	// 写入内容到文件
-	if err = os.WriteFile(destPath, []byte(plainText), 0766); err != nil {
+	if err = os.WriteFile(destPath, []byte(plainText), 0777); err != nil {
 		slog.Error("failed to write content to file", "path", destPath, "error", err)
 		return "", fmt.Errorf("failed to write content to file: %w", err)
 	}
