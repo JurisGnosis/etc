@@ -196,3 +196,35 @@ func UploadRawContent(plainText string, targetFileName string, userIdentifier st
 	slog.Info("content uploaded successfully", "destination", destPath, "publicURL", publicURL)
 	return publicURL, nil
 }
+
+// UploadRawBytes writes bytes content to a file in the storage location
+func UploadRawBytes(content []byte, targetFileName string, userIdentifier string) (filePath string, err error) {
+	slog.Info("uploading raw bytes", "targetFileName", targetFileName, "userIdentifier", userIdentifier, "frontendPublicPath", frontendPublicPath)
+	// 生成目标路径
+	destPath := GetStoragePath(targetFileName, userIdentifier)
+	destDir := filepath.Dir(destPath)
+
+	// 确保目标目录存在
+	if err = os.MkdirAll(destDir, 0777); err != nil {
+		slog.Error("failed to create destination directory", "directory", destDir, "error", err)
+		return "", fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// 写入内容到文件
+	if err = os.WriteFile(destPath, content, 0777); err != nil {
+		slog.Error("failed to write content to file", "path", destPath, "error", err)
+		return "", fmt.Errorf("failed to write content to file: %w", err)
+	}
+
+	// 构建前端访问URL
+	relativePath := destPath[len(baseStorageDir):]
+	relativePath = filepath.ToSlash(relativePath)
+	var publicURL string
+	if strings.HasPrefix(relativePath, "/") {
+		publicURL = frontendPublicPath + relativePath
+	} else {
+		publicURL = frontendPublicPath + "/" + relativePath
+	}
+
+	return publicURL, nil
+}
