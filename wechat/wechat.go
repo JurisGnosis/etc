@@ -39,12 +39,18 @@ var apiUploadEndpoint string
 var cacheLog []string
 var cacheLogMutex sync.Mutex
 var ticker *time.Ticker
+var fetchErrorFlag bool
+var fetchErrorChan chan error
+
+const flushInterval = 60 * time.Millisecond
 
 func init() {
-	ticker = time.NewTicker(60 * time.Millisecond)
+	ticker = time.NewTicker(flushInterval)
 	go func() {
 		for range ticker.C {
+			cacheLogMutex.Lock()
 			flushLog()
+			cacheLogMutex.Unlock()
 		}
 	}()
 }
@@ -55,18 +61,34 @@ func SetApiKey(key string) {
 	apiUploadEndpoint = fmt.Sprintf("%s?key=%s", uploadUrl, key)
 }
 
-func SendLog(msg string) (err error) {
+func SendLogSync(msg string) (err error) {
 	cacheLogMutex.Lock()
-	defer cacheLogMutex.Unlock()
+	fetchErrorFlag = true
 	cacheLog = append(cacheLog, msg)
-	return nil
+	cacheLogMutex.Unlock()
+	return <-fetchErrorChan
 }
-func flushLog() (err error) {
+
+func SendLogAsync(msg string) {
 	cacheLogMutex.Lock()
-	defer cacheLogMutex.Unlock()
-	joinedLog := strings.Join(cacheLog, "\n")
+	cacheLog = append(cacheLog, msg)
+	cacheLogMutex.Unlock()
+}
+
+func flushLog() {
+	if len(cacheLog) == 0 {
+		return
+	}
+	joinedLog := strings.Join(cacheLog, "\n\n")
 	cacheLog = []string{}
-	return SendTextMessage(joinedLog, nil, nil)
+	err := SendMarkdownMessage(joinedLog)
+	if fetchErrorFlag {
+		select {
+		case fetchErrorChan <- err:
+			fetchErrorFlag = false
+		default:
+		}
+	}
 }
 
 func SendTextMessage(msg string, mentionedList []string, mentionedMobileList []string) (err error) {
